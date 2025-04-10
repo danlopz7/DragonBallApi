@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "268dyfEaSTo=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\daen_\\Desktop\\NET-Api\\DragonBallApi\\DragonBallApi.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\daen_\\.nuget\\packages\\microsoft.aspnetcore.openapi\\9.0.4\\microsoft.aspnetcore.openapi.9.0.4.nupkg.sha512",
+    "C:\\Users\\daen_\\.nuget\\packages\\microsoft.openapi\\1.6.17\\microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}
