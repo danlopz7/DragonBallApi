@@ -31,7 +31,7 @@ namespace DragonBallApi.Services
 
             // Obtain Saiyan characters from API
             var characterResponse = await _httpClient.GetAsync(
-                "https://dragonball-api.com/api/characters?limit=58&race=Saiyan"
+                "https://dragonball-api.com/api/characters?race=Saiyan"
             );
 
             if (!characterResponse.IsSuccessStatusCode)
@@ -47,18 +47,31 @@ namespace DragonBallApi.Services
                 return "No Saiyan characters found.";
             }
 
-            // Filter Z Fighter characters
-            var zFighterCharacters = apiCharacters
-                .Where(c =>
-                    !string.IsNullOrEmpty(c.Affiliation)
-                    && c.Affiliation.Equals("Z Fighter", StringComparison.OrdinalIgnoreCase)
-                )
-                .ToList();
+            var charactersToSave = new List<Character>();
 
-            // Fetching transformations
+            foreach (var apiChar in apiCharacters)
+            {
+                var character = new Character
+                {
+                    Name = apiChar.Name,
+                    Ki = apiChar.Ki,
+                    Race = apiChar.Race,
+                    Gender = apiChar.Gender,
+                    Description = apiChar.Description,
+                    Affiliation = apiChar.Affiliation,
+                    Transformations = new List<Transformation>()
+                };
+
+                charactersToSave.Add(character);
+            }
+
+            _context.Characters.AddRange(charactersToSave);
+            await _context.SaveChangesAsync();
+
+            // Obtain transformations
             var transResponse = await _httpClient.GetAsync(
-                "https://dragonball-api.com/api/transformations?limit=100"
-            );
+                            "https://dragonball-api.com/api/transformations"
+                        );
             if (!transResponse.IsSuccessStatusCode)
             {
                 return "Could not get transformations from the API";
@@ -72,37 +85,40 @@ namespace DragonBallApi.Services
                 return "No transformations were found.";
             }
 
-            // Relate transformations by name
-            var charactersToSave = new List<Character>();
+            // Associate transformations from characters whose affiliation is "Z Fighter"
+            var zFighters = await _context.Characters
+            .Where(c => c.Affiliation != null && c.Affiliation.ToLower() == "z fighter")
+            .ToListAsync();
 
-            foreach (var apiChar in zFighterCharacters)
+            // Filter Z Fighter characters
+            var zFighterCharacters = apiCharacters
+                .Where(c =>
+                    !string.IsNullOrEmpty(c.Affiliation)
+                    && c.Affiliation.Equals("Z Fighter", StringComparison.OrdinalIgnoreCase)
+                )
+                .ToList();
+
+            var transformationsToSave = new List<Transformation>();
+
+            foreach (var trans in apiTransformations)
             {
-                var character = new Character
-                {
-                    Name = apiChar.Name,
-                    Ki = apiChar.Ki,
-                    Race = apiChar.Race,
-                    Gender = apiChar.Gender,
-                    Description = apiChar.Description,
-                    Affiliation = apiChar.Affiliation,
-                    Transformations = new List<Transformation>(),
-                };
+                // Find a character whose name is contained in the transformation name
+                var matchingCharacter = zFighters.FirstOrDefault(c =>
+                    !string.IsNullOrEmpty(trans.Name) &&
+                    trans.Name.Contains(c.Name, StringComparison.OrdinalIgnoreCase));
 
-                var relatedTransformations = apiTransformations
-                    .Where(t => t.Name.StartsWith(apiChar.Name, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                foreach (var trans in relatedTransformations)
+                if (matchingCharacter != null)
                 {
-                    character.Transformations.Add(
-                        new Transformation { Name = trans.Name, Ki = trans.Ki }
-                    );
+                    transformationsToSave.Add(new Transformation
+                    {
+                        Name = trans.Name,
+                        Ki = trans.Ki,
+                        CharacterId = matchingCharacter.Id
+                    });
                 }
-
-                charactersToSave.Add(character);
             }
 
-            _context.Characters.AddRange(charactersToSave);
+            _context.Transformations.AddRange(transformationsToSave);
             await _context.SaveChangesAsync();
 
             return "Synchronization completed successfully.";
