@@ -1,5 +1,6 @@
 using DragonBallApi.Data;
 using DragonBallApi.Services;
+using DragonBallApi.Services.external;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,7 @@ builder.Services.AddOpenApi();
 
 // Register HTTP client and custom service
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<IDragonBallApiClient, DragonBallApiClient>();
 builder.Services.AddScoped<IDragonBallService, DragonBallService>();
 
 // Register Controllers

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DragonBallApi.Data;
+using DragonBallApi.DTOs;
 using DragonBallApi.Models;
 using DragonBallApi.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -32,7 +33,7 @@ namespace DragonBallApi.Controllers
         }
 
         // GET /api/characters
-        [HttpGet]
+        /*[HttpGet]
         public async Task<ActionResult<IEnumerable<Character>>> GetCharacters()
         {
             var characters = await _context
@@ -40,7 +41,7 @@ namespace DragonBallApi.Controllers
                 .ToListAsync();
 
             return Ok(characters);
-        }
+        }*/
 
         // GET /api/characters/{id}
         [HttpGet("{id}")]
@@ -65,5 +66,33 @@ namespace DragonBallApi.Controllers
             var result = await _dragonBallService.ClearDatabaseAsync();
             return Ok(new { message = result });
         }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<CharacterDto>>> GetCharacters()
+        {
+            var characters = await _context.Characters
+                .Include(c => c.Transformations)
+                .ToListAsync();
+
+            var dtoList = characters.Select(c => new CharacterDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Ki = c.Ki,
+                Race = c.Race,
+                Gender = c.Gender,
+                Description = c.Description,
+                Affiliation = c.Affiliation,
+                Transformations = c.Transformations.Select(t => new TransformationDto
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Ki = t.Ki
+                }).ToList()
+            });
+
+            return Ok(dtoList);
+        }
+
     }
 }

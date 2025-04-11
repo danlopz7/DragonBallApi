@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DragonBallApi.Data;
 using DragonBallApi.Models;
+using DragonBallApi.Services.external;
 using Microsoft.EntityFrameworkCore;
 
 namespace DragonBallApi.Services
@@ -11,12 +12,12 @@ namespace DragonBallApi.Services
     public class DragonBallService : IDragonBallService
     {
         private readonly AppDbContext _context;
-        private readonly HttpClient _httpClient;
+        private readonly IDragonBallApiClient _apiClient;
 
-        public DragonBallService(AppDbContext context, IHttpClientFactory httpClientFactory)
+        public DragonBallService(AppDbContext context, IDragonBallApiClient apiClient)
         {
             _context = context;
-            _httpClient = httpClientFactory.CreateClient();
+            _apiClient = apiClient;
         }
 
         public async Task<string> SyncCharactersAsync()
@@ -30,26 +31,16 @@ namespace DragonBallApi.Services
             }
 
             // Obtain Saiyan characters from API
-            var characterResponse = await _httpClient.GetAsync(
-                "https://dragonball-api.com/api/characters?race=Saiyan"
-            );
+            var characterResponse = await _apiClient.GetSaiyanCharactersAsync();
 
-            if (!characterResponse.IsSuccessStatusCode)
-            {
-                return "Could not get data from external API.";
-            }
-
-            var apiCharacters = await characterResponse.Content.ReadFromJsonAsync<
-                List<ApiCharacter>
-            >();
-            if (apiCharacters == null || !apiCharacters.Any())
+            if (characterResponse == null || !characterResponse.Any())
             {
                 return "No Saiyan characters found.";
             }
 
             var charactersToSave = new List<Character>();
 
-            foreach (var apiChar in apiCharacters)
+            foreach (var apiChar in characterResponse)
             {
                 var character = new Character
                 {
@@ -69,18 +60,9 @@ namespace DragonBallApi.Services
             await _context.SaveChangesAsync();
 
             // Obtain transformations
-            var transResponse = await _httpClient.GetAsync(
-                            "https://dragonball-api.com/api/transformations"
-                        );
-            if (!transResponse.IsSuccessStatusCode)
-            {
-                return "Could not get transformations from the API";
-            }
+            var transformationsResponse = await _apiClient.GetTransformationsAsync();
 
-            var apiTransformations = await transResponse.Content.ReadFromJsonAsync<
-                List<ApiTransformation>
-            >();
-            if (apiTransformations == null)
+            if (transformationsResponse == null || !transformationsResponse.Any())
             {
                 return "No transformations were found.";
             }
@@ -91,7 +73,7 @@ namespace DragonBallApi.Services
             .ToListAsync();
 
             // Filter Z Fighter characters
-            var zFighterCharacters = apiCharacters
+            var zFighterCharacters = characterResponse
                 .Where(c =>
                     !string.IsNullOrEmpty(c.Affiliation)
                     && c.Affiliation.Equals("Z Fighter", StringComparison.OrdinalIgnoreCase)
@@ -100,7 +82,7 @@ namespace DragonBallApi.Services
 
             var transformationsToSave = new List<Transformation>();
 
-            foreach (var trans in apiTransformations)
+            foreach (var trans in transformationsResponse)
             {
                 // Find a character whose name is contained in the transformation name
                 var matchingCharacter = zFighters.FirstOrDefault(c =>
@@ -131,23 +113,6 @@ namespace DragonBallApi.Services
             await _context.SaveChangesAsync();
 
             return "Database successfully cleaned.";
-        }
-
-        // Helper models to map API JSON
-        private class ApiCharacter
-        {
-            public string Name { get; set; }
-            public string Ki { get; set; }
-            public string Race { get; set; }
-            public string Gender { get; set; }
-            public string Description { get; set; }
-            public string Affiliation { get; set; }
-        }
-
-        private class ApiTransformation
-        {
-            public string Name { get; set; }
-            public string Ki { get; set; }
         }
     }
 }
