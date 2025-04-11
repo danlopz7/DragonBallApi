@@ -21,27 +21,61 @@ namespace DragonBallApi.Services
 
         public async Task<string> SyncCharactersAsync()
         {
-            // Verifica si ya hay datos
+            // Checking for existing data
             bool hasCharacters = await _context.Characters.AnyAsync();
             bool hasTransformations = await _context.Transformations.AnyAsync();
             if (hasCharacters || hasTransformations)
             {
-                return "La base de datos ya tiene datos. Limpia las tablas antes de sincronizar.";
+                return "The database already has data. Clean up the tables before synchronizing.";
             }
 
-            //var response = await _httpClient.GetAsync("https://dragonball-api.com/api/characters");
-            var response = await _httpClient.GetAsync("https://dragonball-api.com/api/characters?limit=58&race=Saiyan");
+            // Obtain Saiyan characters from API
+            var characterResponse = await _httpClient.GetAsync(
+                "https://dragonball-api.com/api/characters?limit=58&race=Saiyan"
+            );
 
-            if (!response.IsSuccessStatusCode)
+            if (!characterResponse.IsSuccessStatusCode)
             {
-                return "No se pudo obtener datos desde la API externa.";
+                return "Could not get data from external API.";
             }
 
-            var apiCharacters = await response.Content.ReadFromJsonAsync<List<ApiCharacter>>();
-            //var saiyanCharacters = apiCharacters.Where(c => c.Race == "Saiyan").ToList();
+            var apiCharacters = await characterResponse.Content.ReadFromJsonAsync<
+                List<ApiCharacter>
+            >();
+            if (apiCharacters == null || !apiCharacters.Any())
+            {
+                return "No Saiyan characters found.";
+            }
+
+            // Filter Z Fighter characters
+            var zFighterCharacters = apiCharacters
+                .Where(c =>
+                    !string.IsNullOrEmpty(c.Affiliation)
+                    && c.Affiliation.Equals("Z Fighter", StringComparison.OrdinalIgnoreCase)
+                )
+                .ToList();
+
+            // Fetching transformations
+            var transResponse = await _httpClient.GetAsync(
+                "https://dragonball-api.com/api/transformations?limit=100"
+            );
+            if (!transResponse.IsSuccessStatusCode)
+            {
+                return "Could not get transformations from the API";
+            }
+
+            var apiTransformations = await transResponse.Content.ReadFromJsonAsync<
+                List<ApiTransformation>
+            >();
+            if (apiTransformations == null)
+            {
+                return "No transformations were found.";
+            }
+
+            // Relate transformations by name
             var charactersToSave = new List<Character>();
 
-            foreach (var apiChar in apiCharacters)
+            foreach (var apiChar in zFighterCharacters)
             {
                 var character = new Character
                 {
@@ -54,24 +88,36 @@ namespace DragonBallApi.Services
                     Transformations = new List<Transformation>(),
                 };
 
-                if (apiChar.Affiliation == "Z Fighter" && apiChar.Transformations != null)
+                var relatedTransformations = apiTransformations
+                    .Where(t => t.Name.StartsWith(apiChar.Name, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                foreach (var trans in relatedTransformations)
                 {
-                    foreach (var trans in apiChar.Transformations)
-                    {
-                        character.Transformations.Add(
-                            new Transformation { Name = trans.Name, Ki = trans.Ki }
-                        );
-                    }
+                    character.Transformations.Add(
+                        new Transformation { Name = trans.Name, Ki = trans.Ki }
+                    );
                 }
+
                 charactersToSave.Add(character);
             }
 
             _context.Characters.AddRange(charactersToSave);
             await _context.SaveChangesAsync();
-            return "Sincronización completada con éxito.";
+
+            return "Synchronization completed successfully.";
         }
 
-        // Modelos auxiliares para mapear el JSON del API
+        public async Task<string> ClearDatabaseAsync()
+        {
+            _context.Transformations.RemoveRange(_context.Transformations);
+            _context.Characters.RemoveRange(_context.Characters);
+            await _context.SaveChangesAsync();
+
+            return "Database successfully cleaned.";
+        }
+
+        // Helper models to map API JSON
         private class ApiCharacter
         {
             public string Name { get; set; }
@@ -80,7 +126,6 @@ namespace DragonBallApi.Services
             public string Gender { get; set; }
             public string Description { get; set; }
             public string Affiliation { get; set; }
-            public List<ApiTransformation> Transformations { get; set; }
         }
 
         private class ApiTransformation

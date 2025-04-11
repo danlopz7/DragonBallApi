@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DragonBallApi.Data;
+using DragonBallApi.Models;
 using DragonBallApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using DragonBallApi.Models;
-using DragonBallApi.Data;
 
 namespace DragonBallApi.Controllers
 {
@@ -31,12 +31,12 @@ namespace DragonBallApi.Controllers
             return Ok(new { message = result });
         }
 
-         // GET /api/characters
+        // GET /api/characters
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Character>>> GetCharacters()
         {
-            var characters = await _context.Characters
-                .Include(c => c.Transformations)
+            var characters = await _context
+                .Characters.Include(c => c.Transformations)
                 .ToListAsync();
 
             return Ok(characters);
@@ -46,8 +46,8 @@ namespace DragonBallApi.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Character>> GetCharacterById(int id)
         {
-            var character = await _context.Characters
-                .Include(c => c.Transformations)
+            var character = await _context
+                .Characters.Include(c => c.Transformations)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (character == null)
@@ -56,6 +56,14 @@ namespace DragonBallApi.Controllers
             }
 
             return Ok(character);
+        }
+
+        // DELETE /api/characters/clear
+        [HttpDelete("clear")]
+        public async Task<IActionResult> ClearDatabase()
+        {
+            var result = await _dragonBallService.ClearDatabaseAsync();
+            return Ok(new { message = result });
         }
     }
 }

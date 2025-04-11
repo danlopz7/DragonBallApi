@@ -8,5 +8,8 @@ namespace DragonBallApi.Services
     public interface IDragonBallService
     {
         Task<string> SyncCharactersAsync();
+
+        Task<string> ClearDatabaseAsync();
+
     }
 }

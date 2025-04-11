@@ -1,4 +1,3 @@
-C:\Users\daen_\Desktop\NET-Api\DragonBallApi\bin\Debug\net9.0\appsettings.Development.json
 C:\Users\daen_\Desktop\NET-Api\DragonBallApi\bin\Debug\net9.0\appsettings.json
 C:\Users\daen_\Desktop\NET-Api\DragonBallApi\bin\Debug\net9.0\DragonBallApi.staticwebassets.endpoints.json
 C:\Users\daen_\Desktop\NET-Api\DragonBallApi\bin\Debug\net9.0\DragonBallApi.exe
