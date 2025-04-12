@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DragonBallApi.Services.external.ExternalModels;
+using DragonBallApi.Utilities;
 
 namespace DragonBallApi.Services.external
 {
@@ -15,28 +16,42 @@ namespace DragonBallApi.Services.external
             _httpClient = httpClientFactory.CreateClient();
         }
 
-        public async Task<List<ApiCharacter>> GetSaiyanCharactersAsync()
+        public Task<Result<List<ApiCharacter>>> GetSaiyanCharactersAsync()
         {
-            var response = await _httpClient.GetAsync("https://dragonball-api.com/api/characters?limit=100&race=Saiyan");
-            if (!response.IsSuccessStatusCode)
-            {
-                //return "Could not get data from external API.";
-                return null;
-            }
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<List<ApiCharacter>>();
+            var url = "https://dragonball-api.com/api/characters?limit=100&race=Saiyan";
+            return GetFromApiAsync<List<ApiCharacter>>(url);
         }
 
-        public async Task<List<ApiTransformation>> GetTransformationsAsync()
+        public Task<Result<List<ApiTransformation>>> GetTransformationsAsync()
         {
-            var response = await _httpClient.GetAsync("https://dragonball-api.com/api/transformations");
-            if (!response.IsSuccessStatusCode)
+            var url = "https://dragonball-api.com/api/transformations";
+            return GetFromApiAsync<List<ApiTransformation>>(url);
+        }
+
+        private async Task<Result<T>> GetFromApiAsync<T>(string url)
+        {
+            try
             {
-                //return "Could not get data from external API.";
-                return null;
+                var response = await _httpClient.GetAsync(url);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return Result<T>.Failure($"Error fetching data: {response.StatusCode}");
+                }
+
+                var data = await response.Content.ReadFromJsonAsync<T>();
+
+                if (data == null)
+                {
+                    return Result<T>.Failure("No data returned from API.");
+                }
+
+                return Result<T>.Success(data);
             }
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<List<ApiTransformation>>();
+            catch (Exception ex)
+            {
+                return Result<T>.Failure($"Exception: {ex.Message}");
+            }
         }
     }
 }

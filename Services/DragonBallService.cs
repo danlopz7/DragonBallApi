@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using DragonBallApi.Data;
 using DragonBallApi.Models;
 using DragonBallApi.Services.external;
+using DragonBallApi.Utilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace DragonBallApi.Services
@@ -20,29 +21,34 @@ namespace DragonBallApi.Services
             _apiClient = apiClient;
         }
 
-        public async Task<string> SyncCharactersAsync()
+        public async Task<Result<string>> SyncCharactersAsync()
         {
             // Checking for existing data
             bool hasCharacters = await _context.Characters.AnyAsync();
             bool hasTransformations = await _context.Transformations.AnyAsync();
+
             if (hasCharacters || hasTransformations)
             {
-                return "The database already has data. Clean up the tables before synchronizing.";
+                return Result<string>.Failure(
+                    "The database already has data. Clean up the tables before synchronizing."
+                );
             }
 
             // Obtain Saiyan characters from API
-            var characterResponse = await _apiClient.GetSaiyanCharactersAsync();
-
-            if (characterResponse == null || !characterResponse.Any())
+            var characterResult = await _apiClient.GetSaiyanCharactersAsync();
+            if (
+                !characterResult.IsSuccess
+                || characterResult.Data == null
+                || !characterResult.Data.Any()
+            )
             {
-                return "No Saiyan characters found.";
+                return Result<string>.Failure(
+                    characterResult.ErrorMessage ?? "No Saiyan characters found."
+                );
             }
 
-            var charactersToSave = new List<Character>();
-
-            foreach (var apiChar in characterResponse)
-            {
-                var character = new Character
+            var charactersToSave = characterResult
+                .Data.Select(apiChar => new Character
                 {
                     Name = apiChar.Name,
                     Ki = apiChar.Ki,
@@ -50,69 +56,76 @@ namespace DragonBallApi.Services
                     Gender = apiChar.Gender,
                     Description = apiChar.Description,
                     Affiliation = apiChar.Affiliation,
-                    Transformations = new List<Transformation>()
-                };
-
-                charactersToSave.Add(character);
-            }
+                    Transformations = new List<Transformation>(),
+                })
+                .ToList();
 
             _context.Characters.AddRange(charactersToSave);
             await _context.SaveChangesAsync();
 
             // Obtain transformations
-            var transformationsResponse = await _apiClient.GetTransformationsAsync();
-
-            if (transformationsResponse == null || !transformationsResponse.Any())
+            var transformationsResult = await _apiClient.GetTransformationsAsync();
+            if (
+                !transformationsResult.IsSuccess
+                || transformationsResult.Data == null
+                || !transformationsResult.Data.Any()
+            )
             {
-                return "No transformations were found.";
+                return Result<string>.Failure(
+                    transformationsResult.ErrorMessage ?? "No transformations were found."
+                );
             }
 
             // Associate transformations from characters whose affiliation is "Z Fighter"
-            var zFighters = await _context.Characters
-            .Where(c => c.Affiliation != null && c.Affiliation.ToLower() == "z fighter")
-            .ToListAsync();
-
-            // Filter Z Fighter characters
-            var zFighterCharacters = characterResponse
-                .Where(c =>
-                    !string.IsNullOrEmpty(c.Affiliation)
-                    && c.Affiliation.Equals("Z Fighter", StringComparison.OrdinalIgnoreCase)
+            var zFighters = await _context
+                .Characters.Where(c =>
+                    c.Affiliation != null && c.Affiliation.ToLower() == "z fighter"
                 )
-                .ToList();
+                .ToListAsync();
 
             var transformationsToSave = new List<Transformation>();
 
-            foreach (var trans in transformationsResponse)
+            foreach (var trans in transformationsResult.Data)
             {
                 // Find a character whose name is contained in the transformation name
                 var matchingCharacter = zFighters.FirstOrDefault(c =>
-                    !string.IsNullOrEmpty(trans.Name) &&
-                    trans.Name.Contains(c.Name, StringComparison.OrdinalIgnoreCase));
+                    !string.IsNullOrEmpty(trans.Name)
+                    && trans.Name.Contains(c.Name, StringComparison.OrdinalIgnoreCase)
+                );
 
                 if (matchingCharacter != null)
                 {
-                    transformationsToSave.Add(new Transformation
-                    {
-                        Name = trans.Name,
-                        Ki = trans.Ki,
-                        CharacterId = matchingCharacter.Id
-                    });
+                    transformationsToSave.Add(
+                        new Transformation
+                        {
+                            Name = trans.Name,
+                            Ki = trans.Ki,
+                            CharacterId = matchingCharacter.Id,
+                        }
+                    );
                 }
             }
 
             _context.Transformations.AddRange(transformationsToSave);
             await _context.SaveChangesAsync();
 
-            return "Synchronization completed successfully.";
+            return Result<string>.Success("Synchronization completed successfully.");
         }
 
-        public async Task<string> ClearDatabaseAsync()
+        public async Task<Result<string>> ClearDatabaseAsync()
         {
-            _context.Transformations.RemoveRange(_context.Transformations);
-            _context.Characters.RemoveRange(_context.Characters);
-            await _context.SaveChangesAsync();
+            try
+            {
+                _context.Transformations.RemoveRange(_context.Transformations);
+                _context.Characters.RemoveRange(_context.Characters);
+                await _context.SaveChangesAsync();
 
-            return "Database successfully cleaned.";
+                return Result<string>.Success("Database successfully cleaned.");
+            }
+            catch (Exception ex)
+            {
+                return Result<string>.Failure("Failed to clear database: " + ex.Message);
+            }
         }
     }
 }
