@@ -1,0 +1,31 @@
+# Archivos de compilación
+bin/
+obj/
+
+# Archivos temporales
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Archivos de VS
+.vscode/
+.vs/
+
+# Archivos de configuración de sistema
+*.dbmdl
+*.bak
+
+# Publicaciones
+*.publishsettings
+
+# Archivos generados por paquetes NuGet
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# Configuración personal
+*.userprefs
+
+# Logs
+*.log
