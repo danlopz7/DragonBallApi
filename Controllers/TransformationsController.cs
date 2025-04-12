@@ -25,9 +25,6 @@ namespace DragonBallApi.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TransformationDto>>> GetTransformations()
         {
-            /* var transformations = await _context.Transformations.ToListAsync();
-            return Ok(transformations); */
-
             var transformations = await _context.Transformations.ToListAsync();
 
             var dtoList = transformations.Select(t => new TransformationDto

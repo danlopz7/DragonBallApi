@@ -25,14 +25,6 @@ namespace DragonBallApi.Controllers
         }
 
         // POST /api/characters/sync
-        /* [HttpPost("sync")]
-        public async Task<IActionResult> SyncCharacters()
-        {
-            var result = await _dragonBallService.SyncCharactersAsync();
-            return Ok(new { message = result });
-        } */
-
-        // POST /api/characters/sync
         [HttpPost("sync")]
         public async Task<IActionResult> SyncCharacters()
         {
@@ -45,14 +37,6 @@ namespace DragonBallApi.Controllers
         }
 
         // DELETE /api/characters/clear
-        /* [HttpDelete("clear")]
-        public async Task<IActionResult> ClearDatabase()
-        {
-            var result = await _dragonBallService.ClearDatabaseAsync();
-            return Ok(new { message = result });
-        } */
-
-        // DELETE /api/characters/clear
         [HttpDelete("clear")]
         public async Task<IActionResult> ClearDatabase()
         {
@@ -63,17 +47,6 @@ namespace DragonBallApi.Controllers
 
             return Ok(new { message = result.Data });
         }
-
-        // GET /api/characters
-        /*[HttpGet]
-        public async Task<ActionResult<IEnumerable<Character>>> GetCharacters()
-        {
-            var characters = await _context
-                .Characters.Include(c => c.Transformations)
-                .ToListAsync();
-        
-            return Ok(characters);
-        }*/
 
         // GET /api/characters
         [HttpGet]
@@ -104,7 +77,6 @@ namespace DragonBallApi.Controllers
 
             return Ok(dtoList);
         }
-
 
         // GET /api/characters/{id}
         [HttpGet("{id}")]
